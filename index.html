@@ -1,0 +1,323 @@
+
+    <div class="container" id="tittle">
+        <h1>____ÁBACO___</h1>
+    </div>
+
+<hr>
+    <!-- Formulario de Agregar Cliente -->
+    <div class="container" id="container-cliente">
+
+        <div class="mb-3" id="agregarCliente">
+            <label for="nombreCliente">NOMBRE DEL CLIENTE</label>
+            <input  type="text" class="form-control" id="nombreCliente" placeholder="Ingrese el nombre del cliente">
+            <div style="text-align: end;padding: 10px;">
+                <button type="button" class="btn btn-outline-success  btn-lg" onclick="agregarCliente()">AGREGAR CLIENTE</button>
+    
+            </div>
+        </div>
+        
+    </div>
+
+
+    
+
+    <!-- Contenedor de Clientes Agregados -->
+
+
+    <!-- Recuadro para filtrar por nombre de cliente -->
+    <div id="container-cliente">
+        <h4 style="text-align: center;">CLIENTES</h4>
+        <div class="mb-3" id="clientesAgregados">
+            <label for="filtroNombre">BUSCAR</label>
+            <input type="text" class="form-control" id="filtroNombre" placeholder="Ingrese el nombre del cliente"
+                oninput="filtrarClientes()">
+        </div>
+
+        <ul id="listaClientes" class="list-group" style="height: 200px; overflow-y: scroll;">
+            <!-- Los clientes agregados se mostrarán aquí -->
+        </ul>
+
+    </div>
+
+
+
+    <hr>
+
+    <!-- Contenedor de Datos del Cliente Seleccionado -->
+    <div id="datosCliente" style="display: none;">
+        <h5>CLIENTE</h5>
+        <p>
+        <h2 id="nombre"></H2>
+        </p>
+        <strong>DEUDA ACTUAL</strong>
+        <H2 id="deuda"></H2>
+        <div class="container" style="background-color: rgb(223, 241, 241); border-radius: 10px; margin-bottom: 10px;">
+            <div class="row">
+                <div class="col" style=" text-align: center;  background-color: rgba(116, 185, 247, 0.445); border-radius: 6px; margin: 3px;">
+                   
+                    <input type="number" class="form-control" id="montoDeuda"
+                        placeholder="monto de deuda">
+                    <button style="margin: 8px;" type="button" class="btn btn-outline-primary  btn-lg" onclick="agregarDeuda()">AGREGAR
+                        DEUDA</button>
+
+                </div>
+                <div class="col" style=" text-align: center;  background-color: rgba(116, 185, 247, 0.445); border-radius: 6px; margin: 3px;">
+                
+                    <input type="number" class="form-control" id="montoPago" placeholder="monto de pago">
+                    <button style="margin: 8px;" type="button" class="btn btn-outline-success  btn-lg" onclick="enviarPago()">ENVIAR
+                        PAGO</button>
+                </div>
+
+            </div>
+
+
+        </div>
+
+        <h6>ÚLTIMOS 10 PAGOS</h6>
+        <ul id="ultimosPagos" class="list-group">
+            <!-- Los últimos pagos del cliente se mostrarán aquí -->
+        </ul>
+
+
+
+
+        <DIv class="container">
+
+            <div class="d-grid" style="margin-top: 30px; text-align: end; margin-bottom: 20px;">
+                <button type="button" class="btn btn-danger  btn-lg" onclick="eliminarCliente()">ELIMINAR
+                    CLIENTE</button>
+            </div>
+
+
+        </DIv>
+
+
+
+
+
+        <script>
+            var clientes = []; // Array para almacenar los clientes agregados
+            var clienteSeleccionado = null; // Variable para almacenar el cliente seleccionado
+            var db; // Variable para la base de datos IndexedDB
+
+            // Función para abrir la base de datos IndexedDB
+            function abrirBaseDeDatos() {
+                var request = indexedDB.open('ClientesDB', 1);
+
+                request.onerror = function (event) {
+                    console.log('Error al abrir la base de datos IndexedDB');
+                };
+
+                request.onsuccess = function (event) {
+                    db = event.target.result;
+                    cargarClientes(); // Cargar los clientes al abrir la base de datos
+                };
+
+                request.onupgradeneeded = function (event) {
+                    db = event.target.result;
+                    var objectStore = db.createObjectStore('clientes', { keyPath: 'id', autoIncrement: true });
+                    objectStore.createIndex('nombre', 'nombre', { unique: false });
+                };
+            }
+
+            // Función para agregar un cliente a la base de datos
+            function agregarCliente() {
+                var nombreCliente = document.getElementById('nombreCliente').value;
+                if (nombreCliente !== '') {
+                    var transaction = db.transaction(['clientes'], 'readwrite');
+                    var objectStore = transaction.objectStore('clientes');
+                    var cliente = {
+                        nombre: nombreCliente,
+                        deuda: 0,
+                        ultimosPagos: []
+                        
+                    };
+                    var request = objectStore.add(cliente);
+
+                    request.onerror = function (event) {
+                        console.log('Error al agregar el cliente a la base de datos');
+                    };
+
+                    request.onsuccess = function (event) {
+                        cliente.id = event.target.result;
+                        clientes.push(cliente);
+                        actualizarListaClientes();
+                        mostrarDatosCliente(cliente);
+                        document.getElementById('nombreCliente').value = '';
+                    };
+                }
+            }
+
+            // Función para cargar los clientes desde la base de datos
+            function cargarClientes() {
+                var transaction = db.transaction(['clientes'], 'readonly');
+                var objectStore = transaction.objectStore('clientes');
+                var request = objectStore.getAll();
+
+                request.onerror = function (event) {
+                    console.log('Error al cargar los clientes desde la base de datos');
+                };
+
+                request.onsuccess = function (event) {
+                    clientes = event.target.result;
+                    actualizarListaClientes();
+                };
+            }
+
+            // Función para actualizar la lista de clientes agregados
+            function actualizarListaClientes() {
+                var listaClientes = document.getElementById('listaClientes');
+                listaClientes.innerHTML = ''; // Limpiar la lista
+                clientes.forEach(function (cliente) {
+                    var li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    li.textContent = cliente.nombre;
+                    li.onclick = function () {
+                        mostrarDatosCliente(cliente);
+                    };
+                    if (cliente === clienteSeleccionado) {
+                        li.classList.add('active'); // Resaltar el cliente seleccionado
+                    }
+                    listaClientes.appendChild(li);
+                });
+            }
+
+            // Función para filtrar los clientes por nombre
+            function filtrarClientes() {
+                var filtroNombre = document.getElementById('filtroNombre').value.toLowerCase();
+                var listaClientes = document.getElementById('listaClientes');
+                listaClientes.innerHTML = ''; // Limpiar la lista
+                clientes.forEach(function (cliente) {
+                    if (cliente.nombre.toLowerCase().includes(filtroNombre)) {
+                        var li = document.createElement('li');
+                        li.className = 'list-group-item';
+                        li.textContent = cliente.nombre;
+                        li.onclick = function () {
+                            mostrarDatosCliente(cliente);
+                        };
+                        if (cliente === clienteSeleccionado) {
+                            li.classList.add('active'); // Resaltar el cliente seleccionado
+                        }
+                        listaClientes.appendChild(li);
+                    }
+                });
+            }
+
+            // Función para mostrar los datos de un cliente seleccionado
+            function mostrarDatosCliente(cliente) {
+                clienteSeleccionado = cliente;
+                document.getElementById('nombre').textContent = cliente.nombre;
+                document.getElementById('deuda').textContent = cliente.deuda.toFixed(2);
+                actualizarUltimosPagos(cliente.ultimosPagos);
+                document.getElementById('datosCliente').style.display = 'block';
+                actualizarListaClientes(); // Actualizar la lista de clientes para resaltar el cliente seleccionado
+            }
+
+            // Función para actualizar la lista de los últimos pagos del cliente
+            function actualizarUltimosPagos(ultimosPagos) {
+                var listaUltimosPagos = document.getElementById('ultimosPagos');
+                listaUltimosPagos.innerHTML = ''; // Limpiar la lista
+                ultimosPagos.forEach(function (pago) {
+                    var li = document.createElement('li');
+                    li.className = 'list-group-item';
+
+                    li.textContent = pago.toFixed(2);
+                    listaUltimosPagos.appendChild(li);
+                });
+            }
+
+            // Función para agregar deuda al cliente seleccionado
+            function agregarDeuda() {
+                var montoDeuda = parseFloat(document.getElementById('montoDeuda').value);
+                if (!isNaN(montoDeuda) && clienteSeleccionado) {
+                    clienteSeleccionado.deuda += montoDeuda; // Sumar la deuda al cliente seleccionado
+                    document.getElementById('deuda').textContent = clienteSeleccionado.deuda.toFixed(2);
+                    clienteSeleccionado.ultimosPagos.push(montoDeuda); // Agregar el pago a los últimos pagos del cliente
+                    if (clienteSeleccionado.ultimosPagos.length > 10) {
+                        clienteSeleccionado.ultimosPagos.shift(); // Eliminar el pago más antiguo si hay más de 10
+                    }
+                    actualizarUltimosPagos(clienteSeleccionado.ultimosPagos);
+                    document.getElementById('montoDeuda').value = '';
+                    actualizarClienteDB(clienteSeleccionado); // Actualizar el cliente en la base de datos
+                }
+            }
+
+            // Función para eliminar al cliente seleccionado
+            function eliminarCliente() {
+                if (confirm("¿Estás seguro de que deseas eliminar al cliente?")) {
+                    if (clienteSeleccionado) {
+                        var transaction = db.transaction(['clientes'], 'readwrite');
+                        var objectStore = transaction.objectStore('clientes');
+                        var request = objectStore.delete(clienteSeleccionado.id);
+
+                        request.onerror = function (event) {
+                            console.log('Error al eliminar el cliente de la base de datos');
+                        };
+
+                        request.onsuccess = function (event) {
+                            var index = clientes.indexOf(clienteSeleccionado);
+                            if (index !== -1) {
+                                clientes.splice(index, 1); // Eliminar el cliente del array
+                                clienteSeleccionado = null;
+                                document.getElementById('datosCliente').style.display = 'none';
+                                actualizarListaClientes(); // Actualizar la lista de clientes
+                                alert('Cliente eliminado exitosamente');
+                            }
+                        };
+                    }
+                }
+            }
+
+
+            // Función para enviar un pago y restar deuda al cliente seleccionado
+            function enviarPago() {
+                var montoPago = parseFloat(document.getElementById('montoPago').value);
+                if (!isNaN(montoPago) && clienteSeleccionado) {
+                    if (montoPago <= clienteSeleccionado.deuda) {
+                        clienteSeleccionado.deuda -= montoPago; // Restar el pago a la deuda del cliente seleccionado
+                    } else {
+                        clienteSeleccionado.deuda = 0; // Establecer la deuda en 0 si el pago es mayor a la deuda
+                    }
+                    document.getElementById('deuda').textContent = clienteSeleccionado.deuda.toFixed(2);
+                    clienteSeleccionado.ultimosPagos.push(-montoPago); // Agregar el pago negativo a los últimos pagos del cliente
+                    if (clienteSeleccionado.ultimosPagos.length > 10) {
+                        clienteSeleccionado.ultimosPagos.shift(); // Eliminar el pago más antiguo si hay más de 10
+                    }
+                    actualizarUltimosPagos(clienteSeleccionado.ultimosPagos);
+                    document.getElementById('montoPago').value = '';
+                    actualizarClienteDB(clienteSeleccionado); // Actualizar el cliente en la base de datos
+                }
+            }
+
+            // Función para calcular el interés cada 3 días si hay deuda impaga
+            function calcularInteres() {
+                clientes.forEach(function (cliente) {
+                    if (cliente.deuda > 0) {
+                        cliente.deuda += cliente.deuda * 0.05; // Sumar el 5% de interés a la deuda
+                        actualizarClienteDB(cliente); // Actualizar el cliente en la base de datos
+                    }
+                });
+            }
+
+            // Función para actualizar un cliente en la base de datos
+            function actualizarClienteDB(cliente) {
+                var transaction = db.transaction(['clientes'], 'readwrite');
+                var objectStore = transaction.objectStore('clientes');
+                var request = objectStore.put(cliente);
+
+                request.onerror = function (event) {
+                    console.log('Error al actualizar el cliente en la base de datos');
+                };
+
+                request.onsuccess = function (event) {
+                    console.log('Cliente actualizado en la base de datos');
+                };
+            }
+
+            // Inicializar la base de datos IndexedDB al cargar la página
+            abrirBaseDeDatos();
+
+            // Calcular el interés cada 3 días
+            setInterval(calcularInteres, 3 * 24 * 60 * 60 * 1000);
+        </script>
+</body>
